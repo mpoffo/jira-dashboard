@@ -29,7 +29,7 @@ document.getElementById('send-prompt').addEventListener('click', async () => {
         }, {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer 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'
+                'Authorization': ''
             }
         });
 

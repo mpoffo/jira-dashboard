@@ -3,7 +3,8 @@ from dataclasses import dataclass
 @dataclass
 class IssueDTO:
     def __init__(self, key, type, summary, assignee, status, epicLink, issueLink, epicName, size, sizeLead, lt, ltProgress, ltCodeRev,
-                 ltTodoRev, ltReview, ltRTD, efficiency, created, updated, resolved, worklog, feature_key=None, feature_name=None, total_spent=None):
+                 ltTodoRev, ltReview, ltRTD, efficiency, created, updated, resolved, worklog, feature_key=None, feature_name=None, 
+                 total_spent=None, labels=None):
         self.key = key
         self.type = type
         self.summary = summary
@@ -28,6 +29,7 @@ class IssueDTO:
         self.feature_key = feature_key
         self.feature_name = feature_name
         self.total_spent = total_spent
+        self.labels = labels
 
 @dataclass
 class WorklogDTO:

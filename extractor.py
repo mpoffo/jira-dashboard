@@ -24,7 +24,7 @@ FIELDS   = ",".join([
     "customfield_10000","customfield_10002","customfield_10325",
     "customfield_11402","customfield_11401","customfield_11406",
     "customfield_14301","customfield_11407","customfield_12300",
-    "issuelinks,customfield_11408,assignee"
+    "issuelinks,customfield_11408,assignee,labels"
 ])
 SIZE_TO_LEADTIME = { 'P': 4, 'M': 6, 'G': 8 }
 
@@ -84,7 +84,8 @@ def issues(project):
                 updated=issue.fields.updated.split("T")[0],
                 resolved=issue.fields.resolutiondate.split("T")[0] if issue.fields.resolutiondate else None,
                 worklog=worklog_dto_list,
-                total_spent=total_spent
+                total_spent=total_spent,
+                labels=issue.fields.labels
             )
             issues_dto_List.append(issue_dto)
 
