@@ -1,0 +1,88 @@
+body  { background:#f8f9fc; font-family:system-ui, sans-serif; }
+h2    { font-weight:700; }
+
+.chart-title     { font-size:1rem; font-weight:600; margin-bottom:.5rem; color:#5a5c69; }
+.chart-container { background:#fff; border-radius:.35rem; box-shadow:0 0 .6rem rgba(0,0,0,.1);
+                   padding:1rem; width:auto; height:auto}
+
+.filter-input { width:100%; font-size:.8rem; border:1px solid #ced4da; border-radius:.25rem; padding:.25rem .5rem; }
+
+.modal-dialog {
+    position: relative;
+    width: 98%;
+    margin: var(--bs-modal-margin);
+    --bs-modal-width: 90%;
+    pointer-events: none;
+}
+
+@media (min-width: 992px) {
+    .modal-lg, .modal-xl {
+        --bs-modal-width: 98%;
+    }
+}
+
+const styles = `
+.chatgpt-insights-widget {
+  font-family: Arial, sans-serif;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 20px 0;
+  max-width: 800px;
+}
+
+.input-area {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+#prompt-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+#send-prompt {
+  margin-left: 10px;
+  padding: 10px 15px;
+  background-color: #0052cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#send-prompt:hover {
+  background-color: #003d99;
+}
+
+#loading-indicator {
+  margin: 10px 0;
+  font-style: italic;
+  color: #555;
+}
+
+#insights-result {
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  padding: 15px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+  .truncate-20 {
+    max-width: 20ch;      /* “ch” ≈ largura de um caractere “0” */
+    overflow: hidden;     /* Esconde o excedente */
+    white-space: nowrap;  /* Impede quebra de linha */
+    text-overflow: ellipsis;
+  }
+
+  .truncate-13 {
+      max-width: 13ch;      /* “ch” ≈ largura de um caractere “0” */
+      overflow: hidden;     /* Esconde o excedente */
+      white-space: nowrap;  /* Impede quebra de linha */
+      text-overflow: ellipsis;
+    }
