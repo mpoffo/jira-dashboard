@@ -10,6 +10,7 @@ loadConfigFromCookies();
 /* ---------- globals preenchidos em runtime ------------------------ */
 let issueList = [];   // issues normalizadas
 let monthlyData = [];   // métricas agregadas
+let flatWorklogTable = [];
 
 async function fetchIssues(project) {
   if (!project) {
@@ -31,7 +32,6 @@ function buildMonthlyMetrics() {
   const bucket = {};
   let allWorklog = [];
 
-
   issueList
     .filter(issue => ['Bug', 'Story'].includes(issue.type))
     .forEach(issue => {
@@ -45,22 +45,51 @@ function buildMonthlyMetrics() {
 
       //apontamentos considera de issues não concluídas também
       issue.worklog.forEach(worklog => {
-        const month = worklog.started.slice(0, 7);        
-        allWorklog.push({ ...worklog, month });
+        worklog.author = worklog.author.toLowerCase();
+        if (team.includes(worklog.author)) {
+          const month = worklog.started.slice(0, 7);
+          worklog.key = issue.key;
+          worklog.summary = issue.summary;
+          allWorklog.push({ ...worklog, month });
+        }
       });
     });
 
+  // Cria uma lista flat com {month, author, ...worklog}
+  // Acumula timeSpent para mesma issue, autor e mês  
+  let worklogMap = {};
+
+  allWorklog.forEach(worklog => {
+    if (!team.includes(worklog.author)) return;
+    const key = `${worklog.key}|${worklog.author}|${worklog.month}`;
+    if (!worklogMap[key]) {
+      worklogMap[key] = {
+        month: worklog.month,
+        author: worklog.author,
+        key: worklog.key,
+        summary: worklog.summary,
+        timeSpent: 0
+      };
+    }
+    worklogMap[key].timeSpent += worklog.timeSpent;
+  });
+
+  flatWorklogTable = Object.values(worklogMap);
 
   monthlyData = Object.entries(bucket).map(([month, arr]) => {
     const take = prop => arr.map(issue => issue[prop]);
     const takeNZ = prop => take(prop).filter(n => n > 0);
     const takeStory = prop => arr.filter(issue => issue.type == 'Story').map(issue => issue[prop]);
     const takeBug = prop => arr.filter(issue => issue.type == 'Bug').map(issue => issue[prop]);
-    const worklogs = prop => allWorklog.filter(wl => wl.month === month).map(wl => wl[prop]);
+    //const worklogs = prop => allWorklog.filter(wl => wl.month === month).map(wl => wl[prop]);
+    const worklogsFiltered = flatWorklogTable.filter(wl => wl.month === month);
+    const worklogs = prop => worklogsFiltered.map(wl => wl[prop]);
+    const retrabalho = arr.filter(issue=>issue.labels.includes('Retrabalho'));
 
     const m = { Mes: month };
 
     m['Throughput'] = arr.length;
+    m['Retrabalho Geral'] = retrabalho.length;
     m['Eficiência Média'] = average(take('efficiency'));
     m['Eficiência (80%)'] = trimmedMean(take('efficiency'));
     m['Tamanho Médio'] = average(take('sizeLead'));
@@ -70,15 +99,16 @@ function buildMonthlyMetrics() {
     m['TamanhoEmLeadTime (80%)'] = trimmedMean(take('sizeLead'));
     m['Apontamento de Horas'] = sum(worklogs('timeSpent'));
 
-    //Apontamento de horas por autor
+    //Indicadores por membro
     team.forEach((member) => {
-      const memberWorklogs = prop => allWorklog.filter(wl => wl.month === month && wl.author.toLowerCase() === member)
+      const memberWorklogs = prop => worklogsFiltered.filter(wl => wl.month === month && wl.author === member)
         .map(wl => wl[prop]);
       m[member] = sum(memberWorklogs('timeSpent'));
+      m['R-' + member] = retrabalho.filter(issue => issue.assignee == member).length; //Retrabalhos
     });
 
-    m['HeadCount'] = [...new Set(allWorklog
-      .filter(wl => wl.month === month && team.includes(wl.author.toLowerCase()) && m[wl.author.toLowerCase()] >= MINIMUM_HOURS_HEADCOUNT)
+    m['HeadCount'] = [...new Set(worklogsFiltered
+      .filter(wl => wl.month === month && team.includes(wl.author) && m[wl.author] >= MINIMUM_HOURS_HEADCOUNT)
       .map(wl => wl.author))].length;
 
     [
@@ -114,12 +144,18 @@ function renderCharts() {
     ['Apontamento Esperado', '#ff5733', 'line'],
   ];
 
+  colorIndex = 0;
+  let retrabalhoDoTime = [
+    ...team.map(member => ['R-' + member, colors[colorIndex++], 'bar']),
+    ['Retrabalho Geral', '#ff5733', 'line'],
+  ];
+
   const chartConfigs = [
     {
       id: 'chartComparativo', type: 'bar',
       title: 'TamanhoEmLeadTime × LeadTime Geral',
       series: [
-        ['TamanhoEmLeadTime Médio', 'red','line'],
+        ['TamanhoEmLeadTime Médio', 'red', 'line'],
         ['LeadTime Geral', 'blue'],
         ['LeadTime Geral (80%)', 'lightblue'],
       ]
@@ -131,7 +167,8 @@ function renderCharts() {
       id: 'chartThroughput', type: 'line', title: 'Throughput x Eficiência',
       series: [
         ['Throughput', '#36b9cc'],
-        ['Eficiência Média', '#4e73df']]
+        ['Eficiência Média', '#4e73df'],
+        ['Retrabalho Geral', 'red', 'line']]
     },
     {
       id: 'chartTimeSpent', type: 'line', title: 'Apontamento de Horas',
@@ -203,6 +240,9 @@ function renderCharts() {
       series: [
         ['Apontamento de Horas', '#36b9cc']
       ]
+    }, {
+      id: 'chartRetrabalho', type: 'line', title: 'Retrabalho do time',
+      series: retrabalhoDoTime
     }
   ];
 
@@ -229,7 +269,13 @@ function renderCharts() {
             title: { display: true, text: cfg.title, font: { size: 16 } },
             legend: { labels: { font: { size: 14 } } }
           },
-          onClick: (evt, elements) => openModalDetails(evt, elements, labels)
+          onClick: (evt, elements) => {
+            if (['chartSpentByMember', 'chartTimeSpent'].includes(cfg.id)) {
+              openModalDetails(flatWorklogTable, evt, elements, labels);
+            } else {
+              openModalDetails(issueList, evt, elements, labels);
+            }
+          }
         }
       }
     );
@@ -245,10 +291,10 @@ const $tbody = $('#tblBody');
 const detailsModal = new bootstrap.Modal('#modalDetalhes');
 
 function openModalDetailsForAll() {
-  openModalDetails(null, null, null, true)
+  openModalDetails(issueList, null, null, null, true)
 }
 
-function openModalDetails(evt, elements, labels, all) {
+function openModalDetails(data, evt, elements, labels, all) {
   let monthIssues = [];
   if (!all) {
     if (!elements.length) return;
@@ -256,15 +302,10 @@ function openModalDetails(evt, elements, labels, all) {
     const monthKey = labels[elements[0].index];
     document.getElementById('lblMes').textContent = monthKey;
 
-    monthIssues = issueList.filter(i =>
-      i.resolved && i.resolved.startsWith(monthKey) &&
-      ['Bug', 'Story'].includes(i.type)
-    );
+    monthIssues = data.filter(i => (i.resolved && i.resolved.startsWith(monthKey)) || (i.month && i.month === monthKey));
   } else {
     document.getElementById('lblMes').textContent = "Todas as issues";
-    monthIssues = issueList.filter(i =>
-      i.resolved && ['Bug', 'Story'].includes(i.type)
-    );
+    monthIssues = issueList;
   }
   if (!monthIssues.length) return;
 
@@ -275,6 +316,10 @@ function openModalDetails(evt, elements, labels, all) {
   $tbody.html(monthIssues.map(issue => {
     const row = columns.map(col => {
       let value = issue[col] || '';
+      if(col == 'key'){
+        value = `<a href="https://jira.senior.com.br/browse/${value}" target="_blank">${value}</a>`;
+        return `<td>${value}</td>`;
+      }
       if (['created', 'updated', 'resolved'].includes(col.toLowerCase()) && value) {
         value = new Date(value).toLocaleDateString('pt-BR');
       } else if (!isNaN(value) && value !== '') {
