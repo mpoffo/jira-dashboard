@@ -26,11 +26,11 @@ FIELDS   = ",".join([
     "customfield_14301","customfield_11407","customfield_12300",
     "issuelinks,customfield_11408,assignee,labels"
 ])
-SIZE_TO_LEADTIME = { 'P': 4, 'M': 6, 'G': 8 }
+SIZE_TO_LEADTIME = "P-4,M-6,G-8"
 
 jira_client = JIRA(server=JIRA_URL, basic_auth=(username, password))
 
-def issues(project):
+def issues(project, tamanho):
     jql = (f"project={project} AND (\"Epic Link\" != HCMDOF-133 or  \"Epic Link\" is EMPTY) AND "
            f"(issuetype in (Epic,Feature) "
            f"OR "
@@ -59,7 +59,7 @@ def issues(project):
                           else getattr(link.outwardIssue, "key", None) for link in issue_links]
             leadTime = getattr(issue.fields, "customfield_11402", None)
             size = str(getattr(issue.fields, "customfield_10325", ''))
-            sizeLead = SIZE_TO_LEADTIME.get(size, 0)
+            sizeLead = tamanho.get(size, 0)
             sizeLead = sizeLead if sizeLead > 0 else leadTime # o que não tem tamanho assume o tamanho realizado pra não distorcer
             assign = getattr(issue.fields, "assignee", '')
             issue_dto = IssueDTO(
@@ -146,12 +146,19 @@ CORS(app)  # Habilita CORS para todas as rotas
 def extract_issues():
     data = request.get_json()
     project = data.get('project')
+    tamanho = data.get('tamanho')
+    if(tamanho == None):
+        tamanho = SIZE_TO_LEADTIME
+
+    #converte tamanho no formato "P-4,M-6,G-8" para um dicionário com value do tipo int
+    # Exemplo: "P-4,M-6,G-8" -> {"P": 4, "M": 6, "G": 8}        
+    tamanho = {k: int(v) for k, v in (item.split('-') for item in tamanho.split(','))}
     
     if not project:
         return jsonify({"error": "Project is required"}), 400
 
     try:
-        issues_data = issues(project)
+        issues_data = issues(project, tamanho)
         issues_to_file(project, issues_data)
         return jsonify({"message": f"Issues for project {project} extracted successfully."}), 200
     except Exception as e:
