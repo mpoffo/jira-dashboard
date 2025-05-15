@@ -25,18 +25,22 @@ function workDays(monthStr, feriados = []) {
 function loadConfigFromCookies() {
   const project = Cookies.get('project') || '';
   const team = Cookies.get('team') || ''; 
+  const tamanho = Cookies.get('tamanho') || 'P-4,M-6,G-8';
 
   // Define os valores nos inputs
   document.getElementById('project').value = project;
   document.getElementById('team').value = team;
+  document.getElementById('tamanho').value = tamanho;
 }
 
 // Função para salvar valores dos inputs nos cookies
 function saveConfigToCookies() {
   const project = document.getElementById('project').value.trim();
   const team = document.getElementById('team').value.trim();
+  const tamanho = document.getElementById('tamanho').value.trim();
   Cookies.set('project', project);
   Cookies.set('team', team);
+  Cookies.set('tamanho', tamanho);
 }
 
 function copyTable(dt) {

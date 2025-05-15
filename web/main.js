@@ -374,14 +374,14 @@ async function requestExtractIssues() {
 
     // Obtém o host da página dinamicamente
     const host = `${window.location.protocol}//${window.location.hostname}:8001`;
-
+    const tamanho = document.getElementById('tamanho').value
     // Faz a requisição ao servidor Flask
     const response = await fetch(`${host}/extract_issues`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ project }),
+      body: JSON.stringify({ project, tamanho}),
     });
 
     if (!response.ok) {
