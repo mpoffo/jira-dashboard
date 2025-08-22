@@ -433,6 +433,9 @@ function bootstrapDashboard() {
         issueList = data.issues;
         buildMonthlyMetrics();
         renderCharts();
+        if(data.issues){
+          drawGanttChart(data.features, data.issues);
+        }
       }
     });
   } catch (err) {

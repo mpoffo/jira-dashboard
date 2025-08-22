@@ -10,6 +10,9 @@
     <!-- Estilo próprio -->
     <link href="styles.css" rel="stylesheet">
 
+    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.umd.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.css">
+
     <!-- DataTables CSS -->
     <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/colreorder/1.6.2/css/colReorder.bootstrap5.min.css" rel="stylesheet">
@@ -56,7 +59,8 @@
             <div class="col-12 col-md-4">
                 <div class="chart-container"
                     title="Para o esperado é contado 7,5hs * dias úteis (sem descontar feriado) * Qtd membros que apontaram 40+hs no mês">
-                    <canvas id="chartTimeSpent"></canvas></div>
+                    <canvas id="chartTimeSpent"></canvas>
+                </div>
             </div>
 
             <div class="col-12 col-md-4">
@@ -114,6 +118,9 @@
             <div id="loading-indicator" style="display: none;">Pensando...</div>
             <div id="insights-result"></div>
         </div>
+
+        <div id="chart_div"></div>
+        <div id="error_div"></div>
     </div>
     <!-- ---------- MODAL Configuracao (inalterado) ---------- -->
     <div class="modal fade" id="modalConfiguracao" tabindex="-1">
@@ -125,10 +132,11 @@
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Projeto</label><input class="form-control" id="project">
                     </div>
-                    <div class="mb-3"><label class="form-label">Time (usuários separados por vírgula)</label><input type="text" class="form-control"
-                            id="team" ></div>                    
-                    <div class="mb-3"><label class="form-label" title="Tamanho e leadtime do tamanho. Exige nova extração!">Tamanhos (no formato P-4,M-6,G-8)</label><input type="text" class="form-control"
-                            id="tamanho"></div>                  
+                    <div class="mb-3"><label class="form-label">Time (usuários separados por vírgula)</label><input
+                            type="text" class="form-control" id="team"></div>
+                    <div class="mb-3"><label class="form-label"
+                            title="Tamanho e leadtime do tamanho. Exige nova extração!">Tamanhos (no formato
+                            P-4,M-6,G-8)</label><input type="text" class="form-control" id="tamanho"></div>
                 </div>
                 <div class="modal-footer"><button class="btn btn-primary" type="submit">Salvar</button></div>
             </form>
@@ -166,9 +174,11 @@
     <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.datatables.net/colreorder/1.6.2/js/dataTables.colReorder.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script src="utils.js"></script>
+    <script src="gantt.js"></script>
     <script src="main.js"></script>
-    <script src="gpt.js"></script>
+    <script src="gpt.js"></script>    
 </body>
 
 </html>

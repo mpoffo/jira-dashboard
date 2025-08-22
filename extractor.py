@@ -18,14 +18,14 @@ if not password:
     password = input("Digite a sua senha do JIRA: ")
 
 print(f"Rodando com usuário: {username}")
+print(f"Rodando com pass: {password}")
 
 FIELDS   = ",".join([
     "key","issuetype","summary","status","created","updated","resolutiondate",
     "customfield_10000","customfield_10002","customfield_10325",
     "customfield_11402","customfield_11401","customfield_11406",
     "customfield_14301","customfield_11407","customfield_12300",
-    "issuelinks,customfield_11408,assignee,labels"
-])
+    "issuelinks,customfield_11408,assignee,labels,customfield_10005"])
 SIZE_TO_LEADTIME = "P-4,M-6,G-8"
 
 jira_client = JIRA(server=JIRA_URL, basic_auth=(username, password))
@@ -34,17 +34,27 @@ def issues(project, tamanho):
     jql = (f"project={project} AND (\"Epic Link\" != HCMDOF-133 or  \"Epic Link\" is EMPTY) AND "
            f"(issuetype in (Epic,Feature) "
            f"OR "
-           f"(issuetype in (Story, Bug) and (resolved >= \"2025-01-01\" or (resolved IS EMPTY and status != Backlog)))) "
+           f"(issuetype in (Story, Bug) and (resolved >= \"2025-01-01\" or (resolved IS EMPTY)))) "
            f"order by key")
     start, size, issues = 0, 1000, []
     issues_dto_List = []
     while True:
+        print(f"JQL: {jql}")
         issues = jira_client.search_issues(jql_str=jql, startAt=start, maxResults=size, fields=FIELDS)
         for index, issue in enumerate(issues):
             issue_key = issue.key
             print(f"Lendo issue: {issue_key} [{index+1} de {issues.total}]")
             issue_summary = issue.fields.summary
+            comments = [c.body for c in jira_client.comments(issue.key)]
             worklogs = jira_client.worklogs(issue.key)
+            #Obtem o usuário que moveu a issue de todo ou backlog para in progress
+            first_wl = [wl for wl in worklogs if wl.started and wl.timeSpentSeconds > 0]
+            if first_wl and first_wl.__len__() > 0:                
+                first_wl = first_wl[0]
+
+            # Ordena os worklogs por data de início
+            worklogs.sort(key=lambda wl: wl.started)
+
             worklog_dto_list = []
             total_spent = 0
             for wl in worklogs:
@@ -85,7 +95,10 @@ def issues(project, tamanho):
                 resolved=issue.fields.resolutiondate.split("T")[0] if issue.fields.resolutiondate else None,
                 worklog=worklog_dto_list,
                 total_spent=total_spent,
-                labels=issue.fields.labels
+                labels=issue.fields.labels,
+                comments=comments,
+                start_date=get_start_date(comments),
+                rank=getattr(issue.fields, "customfield_10005", None),
             )
             issues_dto_List.append(issue_dto)
 
@@ -93,7 +106,16 @@ def issues(project, tamanho):
             break
 
     epic_map = {issue.key: issue.summary for issue in issues_dto_List if issue.type == "Epic"}
-    feature_map = {issue.key: issue.summary for issue in issues_dto_List if issue.type == "Feature"}
+    feature_map = {
+        issue.key: {
+            "key": issue.key,
+            "summary": issue.summary,
+            "status": issue.status,
+            "assignee": issue.assignee,
+            "start_date": issue.start_date
+        }
+        for issue in issues_dto_List if issue.type == "Feature"
+    }
 
     if len(epic_map) == 0 or len(feature_map) == 0:
         throw_error("Não foram encontrados Epics ou Features. Verifique se o JQL está correto.")
@@ -102,13 +124,15 @@ def issues(project, tamanho):
     for issue_dto in issues_dto_List:
         if issue_dto.type != "Epic" and issue_dto.epicLink in epic_map:
             issue_dto.epicName = epic_map[issue_dto.epicLink]
+    
     for issue_dto in issues_dto_List:
         if issue_dto.type != "Epic" and issue_dto.type != "Feature":
+            issue_dto.start_date = get_start_date(issue_dto.comments)
             linkedIssues = issue_dto.issueLink
             for link in linkedIssues:
                 if link in feature_map:
                     issue_dto.feature_key = link
-                    issue_dto.feature_name = feature_map[link]
+                    issue_dto.feature_name = feature_map[link].get('summary')
                     break
 
     result = {
@@ -118,6 +142,22 @@ def issues(project, tamanho):
     }
 
     return result
+
+# Pode existir um comentário na issue que tem o valor inicio=[data].
+# Essa função recebe uma lista de comentários e retorna a data do primeiro comentário que tem esse padrão.
+# Recebe a data no formato DD/MM/AAAA e retorna no formato AAAA-MM-DD.
+def get_start_date(comments):
+    for comment in comments:
+        if "inicio=" in comment:
+            start_date = comment.split("inicio=")[1].split()[0]
+            start_date = start_date.replace('\r', '').replace('\n', '')
+            # Convert DD/MM/AAAA to AAAA-MM-DD
+            try:
+                day, month, year = start_date.split('/')
+                return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+            except Exception:
+                return start_date  # fallback if not in expected format
+    return None
 
 def issues_to_file(project, issues):
     def serialize(obj):
@@ -136,6 +176,12 @@ def issues_to_file(project, issues):
     with open(f"web/{project}.json", "wb") as file:
         file.write(issues_json)
 
+def default_extract():
+    project = "HCMDOF"    
+    issues_data = issues(project, get_tamanho(SIZE_TO_LEADTIME))
+    issues_to_file(project, issues_data)
+    return jsonify({"message": f"Issues for project {project} extracted successfully."}), 200
+
 # SERVER FLASK
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Importa o CORS
@@ -146,13 +192,7 @@ CORS(app)  # Habilita CORS para todas as rotas
 def extract_issues():
     data = request.get_json()
     project = data.get('project')
-    tamanho = data.get('tamanho')
-    if(tamanho == None):
-        tamanho = SIZE_TO_LEADTIME
-
-    #converte tamanho no formato "P-4,M-6,G-8" para um dicionário com value do tipo int
-    # Exemplo: "P-4,M-6,G-8" -> {"P": 4, "M": 6, "G": 8}        
-    tamanho = {k: int(v) for k, v in (item.split('-') for item in tamanho.split(','))}
+    tamanho = get_tamanho(data.get('tamanho'))
     
     if not project:
         return jsonify({"error": "Project is required"}), 400
@@ -164,5 +204,16 @@ def extract_issues():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
+def get_tamanho(tamanho):    
+    if(tamanho == None):
+        tamanho = SIZE_TO_LEADTIME
+
+    #converte tamanho no formato "P-4,M-6,G-8" para um dicionário com value do tipo int
+    # Exemplo: "P-4,M-6,G-8" -> {"P": 4, "M": 6, "G": 8}        
+    tamanho = {k: int(v) for k, v in (item.split('-') for item in tamanho.split(','))}
+    return tamanho
+
+if __name__ == '__main__':    
+    #response = default_extract()
+    #print(response)
     app.run(debug=True, port=8001)
