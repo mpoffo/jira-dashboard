@@ -7,6 +7,8 @@ from numpy.f2py.auxfuncs import throw_error
 
 from Issue import IssueDTO, WorklogDTO
 from flask import Flask, request, jsonify
+from waitress import serve
+
 
 JIRA_URL = "https://jira.senior.com.br"
 username = os.getenv("JIRA_USERNAME")
@@ -216,4 +218,5 @@ def get_tamanho(tamanho):
 if __name__ == '__main__':    
     #response = default_extract()
     #print(response)
-    app.run(debug=True, port=8001)
+    #app.run(debug=True, port=8001)
+    serve(app, host='0.0.0.0', port=8001)

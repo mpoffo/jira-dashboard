@@ -19,17 +19,18 @@ document.getElementById('send-prompt').addEventListener('click', async () => {
         const data = window.jiraData.monthlyData;
 
         // Chamada à API do OpenAI
+        token = document.getElementById('gemini-token').value
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
             model: 'gpt-4o',
             messages: [
-                { role: 'system', content: 'Você é um assistente que analisa dados de desempenho de equipes.' },
+                { role: 'system', content: 'Você é um agilista especialista em analisar dados de desempenho de equipes a partir de dados do jira.' },
                 { role: 'user', content: `Com base nos seguintes dados: ${JSON.stringify(data)}, responda: ${promptInput}` }
             ],
             max_tokens: 5000
         }, {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': ''
+                'Authorization': token
             }
         });
 

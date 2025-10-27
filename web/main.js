@@ -135,6 +135,7 @@ function buildMonthlyMetrics() {
     m['Apontamento Esperado'] = days * WORKING_HOURS;
     m['Apontamento Esperado Time'] = days * WORKING_HOURS * m.HeadCount;
   });
+  window.jiraData = monthlyData;
 }
 
 function renderCharts() {
